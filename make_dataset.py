@@ -57,7 +57,8 @@ sub_cdim = [-180, 180, -90, 90]                     # [Min long, max long, min l
                                                     # use when sampling random images, useful for separating train and 
                                                     # test sets
 
-minpix = 1.                                         # Minimum pixel diameter of craters used in density map.  5 km on the moon
+minpix = 1.                                         # Minimum pixel diameter of craters used in density map.  
+                                                    # 5 km on the moon is 0.5 degrees, or ~60 pixels for a ~20k image.
 
 slivercut = 0.8                                     # Minimum width/height aspect ratio of acceptable image.  Keeping this
                                                     # < 0.8 or so prevents "wedge" images derived from polar regions from
@@ -202,8 +203,8 @@ def make_dmaps(files, maketype, outshp, minpix, dmap_args, savetiff=False):
     #files = sorted([fn for fn in glob.glob('%s*.png'%path)
     #         if (not os.path.basename(fn).endswith('mask.png') and
     #        not os.path.basename(fn).endswith('dens.png'))])
-    print("number of input image files: %d"%(len(files)))
-    print("Generating target tmages ({0:s}).".format(maketype))
+    print("Number of input images generated: %d"%(len(files)))
+    print("Generating target images ({0:s}).".format(maketype))
 
     for fl in files:
         cX, cY = load_img_make_target(fl, maketype, outshp, minpix, dmap_args)
