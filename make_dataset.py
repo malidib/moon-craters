@@ -69,6 +69,11 @@ outp = "outp"                                       # If str, script dumps pickl
                                                     # If multithreading is enabled, rank will be appended to filename.
 
 
+# Physical arguments
+
+R_km = 1737.4                                       # Radius of the world in km - 1737.4 for Moon, 2439.7 for Mercury
+
+
 # Density map and mask arguments
 
 maketype = "mask"                                   # Type of target to make - "dens" for density map, "mask" for mask
@@ -119,21 +124,7 @@ outp = outp + ".p"
 rank = 0
 
 
-########################### MPI ###########################
-
-
-# Utilize mpi4py for multithreaded processing
-# Comment this block out if mpi4py is not available
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-size = comm.Get_size()
-print("Thread {0} of {1}".format(rank, size))
-if outp: # Append rank to outp filename
-    outp = outp.split(".p")[0] + "_p{0}.p".format(rank)
-
-
-########################### Script ###########################
+########################### Functions ###########################
 
 
 def load_img_make_target(filename, maketype, outshp, minpix, dmap_args):
@@ -220,34 +211,56 @@ def make_dmaps(files, maketype, outshp, minpix, dmap_args, savetiff=False):
     return X, Y, X_id, Y_id
 
 
-# Read source image
-img = Image.open(source_image_path).convert("L")
-    
-if sub_cdim != source_cdim:
-    img = mkin.InitialImageCut(img, source_cdim, sub_cdim)
+########################### Script ###########################
 
-craters = mkin.ReadCombinedCraterCSV(filealan=alan_csv_path, filelu=lu_csv_path,
-                                        dropfeatures=True)
-# Co-opt ResampleCraters to remove all craters beyond subset cdim
-# keep minpix = 0 (since we don't have pixel diameters yet)
-craters = mkin.ResampleCraters(craters, sub_cdim, None)
 
-# Generate input images
-print("Generating input images")
-mkin.GenDataset(img, craters, outhead, ilen_range=ilen_range,
-                olen=olen, cdim=sub_cdim, amt=amt, zeropad=zeropad, minpix=minpix,
-                slivercut=slivercut, outp=outp, istart = rank*amt)
+if __name__ == '__main__':
 
-files = [outhead + "_{i:0{zp}d}.png".format(i=i, zp=zeropad) 
-                                            for i in range(rank*amt, (rank+1)*amt)]
+    ########################### MPI ###########################
 
-# Generate target density maps/masks
-outshp = (dmlen, dmlen)
-X, Y, X_id, Y_id = make_dmaps(files, maketype, outshp, minpix, dmap_args, savetiff=savetiff)
+    # Utilize mpi4py for multithreaded processing
+    # Comment this block out if mpi4py is not available
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+    print("Thread {0} of {1}".format(rank, size))
+    if outp: # Append rank to outp filename
+        outp = outp.split(".p")[0] + "_p{0}.p".format(rank)
 
-# Optionally, save data as npy file
-if savenpy:
-    X = np.array(X, dtype=np.float32)
-    Y = np.array(Y, dtype=np.float32)
-    np.save(outhead + "_{rank:01d}_input.npy".format(rank=rank), X)
-    np.save(outhead + "_{rank:01d}_targets.npy".format(rank=rank), Y)
+    ########################### MPI ###########################
+
+    # Read source image
+    img = Image.open(source_image_path).convert("L")
+        
+    if sub_cdim != source_cdim:
+        img = mkin.InitialImageCut(img, source_cdim, sub_cdim)
+
+    craters = mkin.ReadCombinedCraterCSV(filealan=alan_csv_path, 
+                                         filelu=lu_csv_path,
+                                         dropfeatures=True)
+    # Co-opt ResampleCraters to remove all craters beyond subset cdim
+    # keep minpix = 0 (since we don't have pixel diameters yet)
+    craters = mkin.ResampleCraters(craters, sub_cdim, None, arad=R_km)
+
+    # Generate input images
+    print("Generating input images")
+    mkin.GenDataset(img, craters, outhead, ilen_range=ilen_range, olen=olen,
+                    cdim=sub_cdim, arad=R_km, amt=amt, zeropad=zeropad,
+                    minpix=minpix, slivercut=slivercut, outp=outp,
+                    istart = rank*amt)
+
+    files = [outhead + "_{i:0{zp}d}.png".format(i=i, zp=zeropad) 
+                                        for i in range(rank*amt, (rank+1)*amt)]
+
+    # Generate target density maps/masks
+    outshp = (dmlen, dmlen)
+    X, Y, X_id, Y_id = make_dmaps(files, maketype, outshp, minpix, dmap_args, 
+                                  savetiff=savetiff)
+
+    # Optionally, save data as npy file
+    if savenpy:
+        X = np.array(X, dtype=np.float32)
+        Y = np.array(Y, dtype=np.float32)
+        np.save(outhead + "_{rank:01d}_input.npy".format(rank=rank), X)
+        np.save(outhead + "_{rank:01d}_targets.npy".format(rank=rank), Y)

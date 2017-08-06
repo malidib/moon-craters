@@ -192,6 +192,7 @@ def ReadMercuryCraterCSV(filename="./MercLargeCraters.csv", sortlat=True):
 
     if sortlat:
         craters.sort_values(by='Lat', inplace=True)
+        craters.reset_index(inplace=True, drop=True)
 
     return craters
 
@@ -287,7 +288,7 @@ def km2pix(imgheight, latextent, dc=1., a=1737.4):
     dc : float from 0 to 1
         Scaling factor for distortions
     a : float
-        Moon radius
+        World radius in km.  Default is Moon (1737.4 km)
 
     Returns
     -------
@@ -520,9 +521,10 @@ def WarpCraterLoc(craters, geoproj, oproj,
 
 
 def PlateCarree_to_Orthographic(img, oname, llbd, craters, 
-                                iglobe=None, ctr_sub=False, 
-                                origin="upper", rgcoeff=1.2,
-                                dontsave=False, slivercut=0.):
+                                iglobe=None, ctr_sub=False,
+                                arad=1737.4, origin="upper", 
+                                rgcoeff=1.2, slivercut=0.,
+                                dontsave=False):
     """Transform Plate Carree image and associated csv file 
     into Orthographic
 
@@ -543,6 +545,8 @@ def PlateCarree_to_Orthographic(img, oname, llbd, craters,
         If True, assumes craters dataframe includes only craters
         within image.  If False, llbd used to cut craters
         from outside image out of (copy of) dataframe.
+    arad : float
+        World radius in km.  Default is Moon (1737.4 km)
     origin : "lower" or "upper"
         Based on imshow convention for displaying image y-axis.
         "upper" means that [0,0] is upper-left corner of image;
@@ -552,11 +556,11 @@ def PlateCarree_to_Orthographic(img, oname, llbd, craters,
         generically set to 1.2 to prevent loss of fidelity
         during transform (though warping can be so extreme
         that this might be meaningless)
-    dontsave : bool
-        Save or not save, that is the queseiton.
     slivercut : float from 0 to 1
         If transformed image aspect ratio is to narrow (and would
         lead to a lot of padding, return null images)
+    dontsave : bool
+        To save or not to save, that is the queseiton.
 
     Returns (only if dontsave = True)
     ---------------------------------
@@ -569,8 +573,8 @@ def PlateCarree_to_Orthographic(img, oname, llbd, craters,
 
     # If user doesn't provide moon globe properties
     if not iglobe:
-        iglobe = ccrs.Globe(semimajor_axis=1737400, 
-                        semiminor_axis=1737400,
+        iglobe = ccrs.Globe(semimajor_axis=arad*1000., 
+                        semiminor_axis=arad*1000.,
                         ellipse=None)
 
     # Set up Geodetic (long/lat), Plate Carree (usually long/lat, but
@@ -644,7 +648,7 @@ def PlateCarree_to_Orthographic(img, oname, llbd, craters,
     if Cd < 0.7:
         raise AssertionError("Cd cannot be {0:.2f}!".format(Cd))
     pxperkm = km2pix(imgo.size[1], llbd[3] - llbd[2], \
-                        dc=Cd, a=1737.4)
+                        dc=Cd, a=arad)
     ctr_xy["Diameter (pix)"] = ctr_xy["Diameter (km)"] * pxperkm
 
     if dontsave:
@@ -678,7 +682,7 @@ def AddPlateCarree_XY(craters, imgdim, cdim=[-180, 180, -90, 90],
     craters["y"] = y
 
 
-def CreatePlateCarreeDataSet(img, craters, splitnum, outprefix="out",
+def CreateLunarPlateCarreeDataSet(img, craters, splitnum, outprefix="out",
                             savecoords=False):
     """Creates set of images and accompanying csvs of crater data.
 
@@ -738,8 +742,8 @@ def CreatePlateCarreeDataSet(img, craters, splitnum, outprefix="out",
                     outprefix + "_tiles.p", 'wb'))
 
 
-def CreateOrthographicDataSet(outprefix):
-    """Creates set of images and accompanying csvs of crater data from
+def CreateLunarOrthographicDataSet(outprefix):
+    """Creates set of Moon images and accompanying csvs of crater data from
     a set of Plate Carree data.
 
     Parameters
@@ -778,8 +782,9 @@ def CreateOrthographicDataSet(outprefix):
                 "ortho" + item.split( "/" + prefix_head )[1]
 
         PlateCarree_to_Orthographic(item, oname, llbd, craters, 
-                                    iglobe=None, ctr_sub=True, 
-                                    origin="upper", rgcoeff=1.2)
+                                    iglobe=None, ctr_sub=True,
+                                    arad=1737.4, origin="upper",
+                                    rgcoeff=1.2)
 
 
 ################### Create Random Dataset ###########################
@@ -839,7 +844,7 @@ def ResampleCraters(craters, llbd, imgheight, arad=1737.4, minpix=0):
     imgheight : int
         Pixel height of image
     arad : float
-        Radius of Moon
+        World radius in km.  Defaults to Moon radius (1737.4 km)
     minpix : int
         Minimium crater pixel size to be included
         in output
@@ -894,7 +899,7 @@ def ResampleCraters(craters, llbd, imgheight, arad=1737.4, minpix=0):
 
 
 def GenDataset(img, craters, outhead, ilen_range=np.array([300., 4000.]), 
-                olen=300, cdim=[-180, 180, -90, 90],
+                olen=300, cdim=[-180, 180, -90, 90], arad=1737.4,
                 minpix=0, amt=100, zeropad=4, slivercut=0.1, 
                 outp=False, istart = 0, seed=None):
     """Generates random dataset from plate image.
@@ -917,6 +922,8 @@ def GenDataset(img, craters, outhead, ilen_range=np.array([300., 4000.]),
         downsampled to this size.
     cdim : list-like
         Coordinate limits (x_min, x_max, y_min, y_max) of image
+    arad : float
+        World radius in km.  Defaults to Moon radius (1737.4 km)
     minpix : int
         Minimum crater diameter in pixels to be included in
         crater list.  By default, not useful, since
@@ -958,10 +965,10 @@ def GenDataset(img, craters, outhead, ilen_range=np.array([300., 4000.]),
 
     # Get craters
     AddPlateCarree_XY(craters, list(img.size), cdim=cdim, 
-                            origin=origin)
+                      origin=origin)
 
-    iglobe = ccrs.Globe(semimajor_axis=1737400, 
-                    semiminor_axis=1737400,
+    iglobe = ccrs.Globe(semimajor_axis=arad*1000., 
+                    semiminor_axis=arad*1000.,
                     ellipse=None)
 
     # Determine log values of ilen range
@@ -999,11 +1006,12 @@ def GenDataset(img, craters, outhead, ilen_range=np.array([300., 4000.]),
         im = im.resize([olen, olen])
 
         # Remove all craters that are too small to be seen in image
-        ctr_sub = ResampleCraters(craters, llbd, im.size[1], minpix=minpix)
+        ctr_sub = ResampleCraters(craters, llbd, im.size[1], arad=arad,
+                                  minpix=minpix)
 
         # Convert Plate Carree to Orthographic
         [imgo, ctr_xy] = PlateCarree_to_Orthographic(im, None, llbd, ctr_sub, 
-                                    iglobe=iglobe, ctr_sub=True, 
+                                    iglobe=iglobe, ctr_sub=True, arad=arad,
                                     origin=origin, rgcoeff=1.2, dontsave=True,
                                     slivercut=slivercut)
 
@@ -1012,10 +1020,6 @@ def GenDataset(img, craters, outhead, ilen_range=np.array([300., 4000.]),
         if imgo is None:
             print("Discarding narrow image")
             continue
-
-        # Randomly rotate and/or flip, if user so desires
-        #if randrot:
-        #    [imgo, ctr_xy] = RandRot(imgo, ctr_xy, origin=origin)
 
         # Output everything
         oname = outhead + "_{i:0{zp}d}".format(i=i, zp=zeropad)
@@ -1115,7 +1119,7 @@ if __name__ == '__main__':
     # keep minpix = 0 (since we don't have pixel diameters yet)
     craters = ResampleCraters(craters, cdim, None)
 
-    GenDataset(img, craters, args.outhead, ilen_range=np.array([600., 2000.]),
+    GenDataset(img, craters, args.outhead, ilen_range=np.array([600., 2000.]), arad=1737.4,
                     olen=300, cdim=cdim, amt=args.amt, zeropad=5, minpix=args.minpix,
                     slivercut=args.slivercut, outp="_p{0}.p".format(rank), 
                     istart = rank*args.amt)
