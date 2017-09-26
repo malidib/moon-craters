@@ -25,6 +25,8 @@ from PIL import Image, ImageChops, ImageOps
 import make_input_data as mkin
 import make_density_map as densmap
 
+# Garbage collection
+import gc
 
 ########################### Global Variables ###########################
 
@@ -186,9 +188,12 @@ def make_dmaps(files, maketype, outshp, minpix, dmap_args, savetiff=False):
         arbitrary intensities, while most image formats go from 
         0 - 256 between 3 channels.        
     """
-    X = []
+    cX0, cY0 = load_img_make_target(files[0], maketype, outshp, minpix,
+        dmap_args)
+
+    X = np.empty((len(files),) + cX0.shape, dtype=np.uint8)
     X_id = []
-    Y = []
+    Y = np.empty((len(files),) + cY0.shape, dtype=np.float32)
     Y_id = []
 
     #files = sorted([fn for fn in glob.glob('%s*.png'%path)
@@ -197,11 +202,11 @@ def make_dmaps(files, maketype, outshp, minpix, dmap_args, savetiff=False):
     print("Number of input images generated: %d"%(len(files)))
     print("Generating target images ({0:s}).".format(maketype))
 
-    for fl in files:
+    for i, fl in enumerate(files):
         cX, cY = load_img_make_target(fl, maketype, outshp, minpix, dmap_args)
-        X.append(cX)
+        X[i] = cX
         X_id.append(fl)
-        Y.append(cY)
+        Y[i] = cY
         mname = fl.split(".png")[0] + maketype + ".tiff"
         Y_id.append(mname)
         if savetiff:
