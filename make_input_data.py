@@ -72,6 +72,7 @@ def ReadSalamuniccarCraterCSV(filename="./LU78287GT.csv", dropfeatures=False,
 
     if sortlat:
         craters.sort_values(by='Lat', inplace=True)
+        craters.reset_index(inplace=True, drop=True)
 
     return craters
 
@@ -116,6 +117,7 @@ def ReadAlanCraterCSV(filename="./alanalldata.csv", sortlat=True):
     craters = pd.read_csv(filename, header=0)
     if sortlat:
         craters.sort_values(by='Lat', inplace=True)
+        craters.reset_index(inplace=True, drop=True)
 
     return craters
 
