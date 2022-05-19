@@ -1,3 +1,3 @@
-# Lunar craters counting using Convolutional Networks
-CPS / CITA 
-University of Toronto
+# Original attempt at Lunar craters counting using Convolutional Neural Networks
+
+This project eventually morphed into DeepMoon:  https://github.com/malidib/DeepMoon
